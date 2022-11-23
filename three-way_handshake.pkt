@@ -1,0 +1,37 @@
+// 所有的 ... 表示使用 packetdrill的默认值
+// + 标识上条指令的偏移时间
+// 创建一个socket
+0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+// 设置 SO_REUSEADDR
++0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+// 绑定端口 默认 8080
++0 bind(3, ..., ...) = 0
+// listen 
++0 listen(3, 1) = 0
+
+// TCP three-way handshake
+// < 向协议栈注入一个 SEQ 起:终(大小) 窗口 窗口大小 mss(最大报文长度)大小
++0 < S 0:0(0) win 4000 <mss 1000>
+// 期望从协议栈收到 S 起:终(大小) ACK 1
++0 > S. 0:0(0) ack 1 <...>
+// 注入协议栈 ack
++.1 < . 1:1(0) ack 1 win 1000
+// accept 系统调用返回了一个值为 4 的新的文件 fd
+// 这时 packetdrill 可以往这个 fd 里面写数据了
++0 accept(3, ..., ...) = 4
+// 调用 write 函数往 socket 里写了 10 字节的数据
++0 write(4, ..., 10) = 10
+// 协议栈立刻发出这 10 个字节数据包
+// 同时把 PSH 标记置为 1
+// 这个包的起始 seq 为 1，结束 seq 为 10，长度为 10。
++0 > P. 1:11(10) ack 1
+// 100ms 以后注入 ACK 包，模拟协议栈收到 ACK 包
++.1 < . 1:1(0) ack 6 win 1000
+
+
+//sudo tcpdump -i any port 8080 -nn
+
+// listening on any, link-type PKTAP (Apple DLT_PKTAP), snapshot length 524288 bytes
+// 23:18:33.667456 IP 192.0.2.1.54963 > 192.168.0.1.8080: Flags [S], seq 0, win 4000, options [mss 1000], length 0
+// 23:18:33.667591 IP 192.168.0.1.8080 > 192.0.2.1.54963: Flags [S.], seq 2717821081, ack 1, win 65535, options [mss 1460], length 0
+// 23:18:33.773037 IP 192.168.0.1.8080 > 192.0.2.1.54963: Flags [R.], seq 1, ack 1, win 65535, length 0
